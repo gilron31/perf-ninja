@@ -2,6 +2,7 @@
 #include "solution.h"
 #include <array>
 #include <immintrin.h>
+#include <iostream>
 
 void imageSmoothing(const InputVector &input, uint8_t radius,
                     OutputVector &output) {
@@ -28,21 +29,36 @@ void imageSmoothing(const InputVector &input, uint8_t radius,
 
   uint16_t scratch_pluses[STEP] = {};
   uint16_t scratch_minuses[STEP] = {};
+  uint16_t scratch_diffs[STEP] = {};
   for (; pos <= limit - STEP; pos += STEP) {
 
-    __m128i outputs = _mm_set1_epi16(currentSum);
     for (size_t i = 0; i < STEP; i++) {
-      scratch_pluses[i] = input[pos - radius - 1 + i];
-      scratch_minuses[i] = input[pos + radius + i];
+      scratch_minuses[i] = input[pos - radius - 1 + i];
+      scratch_pluses[i] = input[pos + radius + i];
     }
-    __m128i minuses16 = _mm_loadu_si16(&scratch_minuses);
-    __m128i pluses16 = _mm_loadu_si16(&scratch_pluses);
-    outputs = _mm_add_epi16(outputs, pluses16);
-    outputs = _mm_sub_epi16(outputs, minuses16);
+    __m128i minuses16 = _mm_set_epi8(                 //
+        0, scratch_minuses[7], 0, scratch_minuses[6], //
+        0, scratch_minuses[5], 0, scratch_minuses[4], //
+        0, scratch_minuses[3], 0, scratch_minuses[2], //
+        0, scratch_minuses[1], 0, scratch_minuses[0]);
+    __m128i pluses16 = _mm_set_epi8(                //
+        0, scratch_pluses[7], 0, scratch_pluses[6], //
+        0, scratch_pluses[5], 0, scratch_pluses[4], //
+        0, scratch_pluses[3], 0, scratch_pluses[2], //
+        0, scratch_pluses[1], 0, scratch_pluses[0]);
+    __m128i diffs = _mm_sub_epi16(pluses16, minuses16);
 
-    _mm_storeu_si16(&output[pos], outputs);
+    _mm_storeu_si128((__m128i *)&scratch_diffs, diffs);
 
-    currentSum = output[pos + STEP - 1];
+    for (size_t i = 0; i < STEP; i++) {
+      // if (scratch_diffs[i] != scratch_pluses[i] - scratch_minuses[i]) {
+      //   std::cout << "ERROR" << std::endl;
+      // }
+      // std::cout << scratch_diffs[i] << ", " << scratch_pluses[i] << ", "
+      //           << scratch_minuses[i] << std::endl;
+      currentSum += scratch_diffs[i];
+      output[pos + i] = currentSum;
+    }
   }
 
   for (; pos < limit; ++pos) {
