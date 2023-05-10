@@ -1,7 +1,7 @@
 
 #include "solution.h"
+#include <array>
 #include <immintrin.h>
-#include <memory>
 
 void imageSmoothing(const InputVector &input, uint8_t radius,
                     OutputVector &output) {
@@ -24,20 +24,25 @@ void imageSmoothing(const InputVector &input, uint8_t radius,
   // 2. main loop.
   limit = size - radius;
 
-  constexpr size_t step = 32;
-  for (; pos < limit; pos += step) {
+  constexpr size_t STEP = 8;
 
-    __m256i minuses8 = _mm256_loadu_epi8(&input[pos - radius - 1]);
-    __m256i pluses8 = _mm256_loadu_epi8(&input[pos + radius]);
-    __m512i outputs = _mm512_set1_epi16(currentSum);
-    __m512i minuses16 = _mm512_cvtepi8_epi16(minuses8);
-    __m512i pluses16 = _mm512_cvtepi8_epi16(pluses8);
-    outputs = _mm512_add_epi16(outputs, pluses16);
-    outputs = _mm512_sub_epi16(outputs, minuses16);
+  uint16_t scratch_pluses[STEP] = {};
+  uint16_t scratch_minuses[STEP] = {};
+  for (; pos <= limit - STEP; pos += STEP) {
 
-    _mm512_storeu_epi16(&output, outputs);
+    __m128i outputs = _mm_set1_epi16(currentSum);
+    for (size_t i = 0; i < STEP; i++) {
+      scratch_pluses[i] = input[pos - radius - 1 + i];
+      scratch_minuses[i] = input[pos + radius + i];
+    }
+    __m128i minuses16 = _mm_loadu_si16(&scratch_minuses);
+    __m128i pluses16 = _mm_loadu_si16(&scratch_pluses);
+    outputs = _mm_add_epi16(outputs, pluses16);
+    outputs = _mm_sub_epi16(outputs, minuses16);
 
-    currentSum = output[pos + step - 1];
+    _mm_storeu_si16(&output[pos], outputs);
+
+    currentSum = output[pos + STEP - 1];
   }
 
   for (; pos < limit; ++pos) {
