@@ -33,19 +33,22 @@ void imageSmoothing(const InputVector &input, uint8_t radius,
   for (; pos <= limit - STEP; pos += STEP) {
 
     for (size_t i = 0; i < STEP; i++) {
-      scratch_minuses[i] = input[pos - radius - 1 + i];
+      // scratch_minuses[i] = input[pos - radius - 1 + i];
       scratch_pluses[i] = input[pos + radius + i];
     }
-    __m128i minuses16 = _mm_set_epi8(                 //
-        0, scratch_minuses[7], 0, scratch_minuses[6], //
-        0, scratch_minuses[5], 0, scratch_minuses[4], //
-        0, scratch_minuses[3], 0, scratch_minuses[2], //
-        0, scratch_minuses[1], 0, scratch_minuses[0]);
-    __m128i pluses16 = _mm_set_epi8(                //
-        0, scratch_pluses[7], 0, scratch_pluses[6], //
-        0, scratch_pluses[5], 0, scratch_pluses[4], //
-        0, scratch_pluses[3], 0, scratch_pluses[2], //
-        0, scratch_pluses[1], 0, scratch_pluses[0]);
+
+    __m128i minuses16 = _mm_load_si128((__m128i *)scratch_minuses);
+    __m128i pluses16 = _mm_load_si128((__m128i *)scratch_pluses);
+    // __m128i minuses16 = _mm_set_epi8(                                   //
+    //     0, input[pos - radius - 1 + 7], 0, input[pos - radius - 1 + 6], //
+    //     0, input[pos - radius - 1 + 5], 0, input[pos - radius - 1 + 4], //
+    //     0, input[pos - radius - 1 + 3], 0, input[pos - radius - 1 + 2], //
+    //     0, input[pos - radius - 1 + 1], 0, input[pos - radius - 1 + 0]);
+    // __m128i pluses16 = _mm_set_epi8(                            //
+    //     0, input[pos + radius + 7], 0, input[pos + radius + 6], //
+    //     0, input[pos + radius + 5], 0, input[pos + radius + 4], //
+    //     0, input[pos + radius + 3], 0, input[pos + radius + 2], //
+    //     0, input[pos + radius + 1], 0, input[pos + radius + 0]);
     __m128i diffs = _mm_sub_epi16(pluses16, minuses16);
 
     _mm_storeu_si128((__m128i *)&scratch_diffs, diffs);
